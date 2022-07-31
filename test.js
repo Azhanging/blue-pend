@@ -1,19 +1,3 @@
-# blue-pend
-
-## 使用场景
-
-在实际的业务场景中，很多都会涉及到很多异步的场景，往往这些异步的场景
-可能会很多生命周期场景中调用，这里就会出现如何去处理相关的后续的回调业务，
-
-## 举个栗子：获取配置的场景
-
-对于类似获取服务端配置问题，这里会涉及到 runtime 时，实际获取配置的时间会比 runtime 时间要长，这种情况下没处理想需要用的业务，这是需要用到异步队列去处理相关的业务。
-
-## 如何使用？
-
-先看个栗子 test.js
-
-```javascript
 const BluePend = require("./dist/blue-pend");
 
 const pend = new BluePend();
@@ -104,24 +88,3 @@ setTimeout(() => {
     console.log(error);
   });
 }, 1500);
-```
-
-上面的栗子中，实际处理只会进行一次网络请求，响应会进行两次响应，对应得到的响应结果也是一致的，对于配置类似的的请求，实际只会触发一次，并进行多点响应，具体是怎么样处理的，下面进行相关讲解。
-
-实际场景会存在三个状态
-
-```typescript
-//异步状态 相关的状态
-export enum ASYNC_STATUS {
-  //创建状态
-  CREATE = `CREATE`,
-  //等待被消费
-  PENDING = `PENDING`,
-  //成功状态
-  SUCCESS = `SUCCESS`,
-  //异常状态
-  FAIL = `FAIL`,
-}
-```
-
-以上面的栗子为例，在第一次进行 setAsync 的时候，这里的状态为 CREATE，再进行第二次对 request 调用是，第二次的 setAsync 检测到状态是 CREATE，这里将当前的 key 状态设置为 PENDING 进行结果等待，把相关的回调会进行队列处理。如果第一次 request 响应的结果是SUCCESS，这里将会对结果带入到队列处理。FAIL也会进行
