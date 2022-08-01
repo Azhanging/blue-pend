@@ -1,6 +1,6 @@
 {
   "name": "blue-pend",
-  "version": "1.0.1",
+  "version": "1.0.3",
   "description": "async pend handler,async queue",
   "main": "./index.js",
   "types": "./types/index.d.ts",
@@ -9,8 +9,9 @@
     "build": "node  blue-build-library/build.js"
   },
   "keyword": [
-    "utils",
-    "blue utils"
+    "pend handler",
+    "pend queue",
+    "pending queue handler"
   ],
   "author": "Blue",
   "license": "ISC",
