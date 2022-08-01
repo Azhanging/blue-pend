@@ -1,53 +1,69 @@
 import BlueQueuePipe from "blue-queue-pipe";
-import { ASYNC_STATUS } from "./status";
-interface TASyncGroupItem {
+import { STATUS } from "./status";
+declare type TKey = string;
+interface TPendsItem {
     queue: BlueQueuePipe;
-    status: ASYNC_STATUS;
+    status: STATUS;
     data: any;
     expire: number;
     expireTime: number;
 }
-interface TAsyncGroup {
-    [key: string]: TASyncGroupItem;
+interface TPends {
+    [key: string]: TPendsItem;
 }
-interface TAsyncOptions {
-    key: string;
+interface TKeyOptions {
+    key?: TKey;
+}
+interface TPendListenOptions extends TKeyOptions {
     expire?: number;
     success?: Function;
     fail?: Function;
     queue?: any[];
     queueOptions?: any;
 }
+interface TLoadOptions {
+    key?: TKey;
+    data?: any;
+    status?: STATUS;
+}
+interface TStatusOptions extends TKeyOptions {
+    status?: STATUS;
+}
+interface TConstructorOptions {
+    key?: TKey;
+}
 export default class BluePend {
-    static ASYNC_STATUS: typeof ASYNC_STATUS;
-    asyncGroup: TAsyncGroup;
-    constructor();
-    hook(ctx: any, fn: Function | any, args?: any[]): any;
-    setAsync(opts: TAsyncOptions): any;
-    getAsync(key: string): TASyncGroupItem;
-    removeAsync(key: string): void;
-    setAsyncData(key: string, data: any): any;
-    getAsyncData(key: string): any;
-    removeAsyncData(key: string): void;
-    getAsyncQueue(key: string): BlueQueuePipe;
-    setAsyncStatus(key: string, status: ASYNC_STATUS): ASYNC_STATUS;
-    getAsyncStatus(key: string): ASYNC_STATUS;
-    setPendingStatus(key: string): void;
-    setSuccessStatus(key: string): void;
-    setFailStatus(key: string): void;
-    runAsyncQueue(key: string, status?: ASYNC_STATUS): void;
-    isCreateStatus(key: string): any;
-    isPendingStatus(key: string): any;
-    isSuccessStatus(key: string): any;
-    isFailStatus(key: string): any;
-    asyncCreateHook(key: string, callback: Function): any;
-    asyncPendingHook(key: string, callback: Function): any;
-    asyncSuccessHook(key: string, callback: Function): any;
-    asyncFailHook(key: string, callback: Function): any;
-    asyncLoad(opts: {
-        key: string;
+    static STATUS: typeof STATUS;
+    pends: TPends;
+    options: TConstructorOptions;
+    key?: TKey;
+    constructor(opts?: TConstructorOptions);
+    hook(ctx: any, fn?: Function, args?: any[]): any;
+    statusHook(opts: {
+        key?: TKey;
+        createHook?: Function;
+        successHook?: Function;
+        failHook?: Function;
+        pendingHook?: Function;
+        excludes: STATUS[];
+        runQueue?: boolean;
+    }): boolean;
+    listen(opts: TPendListenOptions): this;
+    getListen(opts?: TKeyOptions): TPendsItem;
+    removeListen(opts?: TKeyOptions): void;
+    setData(opts: {
+        key?: TKey;
         data?: any;
-        status?: ASYNC_STATUS;
+    }): any;
+    getData(opts?: TKeyOptions): any;
+    removeData(opts?: TKeyOptions): void;
+    getQueue(opts?: TKeyOptions): BlueQueuePipe;
+    setStatus(opts: {
+        key?: TKey;
+        status: STATUS;
     }): void;
+    getStatus(opts?: TKeyOptions): STATUS;
+    runQueue(opts?: TStatusOptions): void;
+    load(opts?: TLoadOptions): void;
 }
 export {};

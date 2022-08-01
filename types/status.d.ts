@@ -1,4 +1,4 @@
-export declare enum ASYNC_STATUS {
+export declare enum STATUS {
     CREATE = "CREATE",
     PENDING = "PENDING",
     SUCCESS = "SUCCESS",

@@ -1,5 +1,5 @@
 //异步状态 相关的状态
-export enum ASYNC_STATUS {
+export enum STATUS {
   //创建状态
   CREATE = `CREATE`,
   //等待被消费

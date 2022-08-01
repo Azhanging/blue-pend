@@ -1,32 +1,16 @@
 //队列模块
 import BlueQueuePipe from "blue-queue-pipe";
-import { ASYNC_STATUS } from "./status";
+import { STATUS } from "./status";
 
-//生成状态判断
-function conditionAsyncStatus(key: string, status: ASYNC_STATUS): boolean {
-  return status === this.getAsyncStatus(key);
-}
-
-//生成状态回调处理
-function asyncStatusHook(
-  this: BluePend,
-  status: ASYNC_STATUS,
-  key: string,
-  callback: Function
-): boolean {
-  if (this.getAsyncStatus(key) === status) {
-    this.hook(null, callback);
-    return true;
-  }
-  return false;
-}
+//key
+type TKey = string;
 
 //异步组项数据
-interface TASyncGroupItem {
+interface TPendsItem {
   //当前队列
   queue: BlueQueuePipe;
   //当前同步状态 未存在记录时，第一次未CREATE状态
-  status: ASYNC_STATUS;
+  status: STATUS;
   //数据
   data: any;
   //有效期 毫秒
@@ -36,13 +20,17 @@ interface TASyncGroupItem {
 }
 
 //异步组数据
-interface TAsyncGroup {
-  [key: string]: TASyncGroupItem;
+interface TPends {
+  [key: string]: TPendsItem;
+}
+
+//所有通用的
+interface TKeyOptions {
+  key?: TKey;
 }
 
 // 异步组里面的项内同
-interface TAsyncOptions {
-  key: string;
+interface TPendListenOptions extends TKeyOptions {
   //有效期 毫秒
   expire?: number;
   //队列处理
@@ -55,22 +43,118 @@ interface TAsyncOptions {
   queueOptions?: any;
 }
 
+//load options
+interface TLoadOptions {
+  key?: TKey;
+  data?: any;
+  status?: STATUS;
+}
+
+interface TStatusOptions extends TKeyOptions {
+  status?: STATUS;
+}
+
+interface TConstructorOptions {
+  key?: TKey;
+}
+
+//生成状态判断
+function conditionStatus(this: BluePend, opts: TStatusOptions): boolean {
+  const { key = this.key, status } = opts;
+  return status === this.getStatus({ key });
+}
+
+//默认key
+const DEFAULT_KEY = `DEFAULT`;
+
 export default class BluePend {
   //通过静态属性获取相关状态值
-  static ASYNC_STATUS = ASYNC_STATUS;
+  static STATUS = STATUS;
   //异步组数据
-  asyncGroup: TAsyncGroup;
+  pends: TPends;
+  //构造配置
+  options: TConstructorOptions;
+  key?: TKey;
   //构造
-  constructor() {
-    this.asyncGroup = {};
+  constructor(opts: TConstructorOptions = {}) {
+    this.options = opts;
+    this.key = opts.key || DEFAULT_KEY;
+    this.pends = {};
   }
-
   //hook处理
-  hook(ctx: any, fn: Function | any, args: any[] = []): any {
+  hook(ctx: any, fn?: Function, args: any[] = []): any {
     if (typeof fn === `function`) {
       return fn.apply(ctx, args);
     }
     return fn;
+  }
+
+  //如果遇到了非CREATE状态，返回true
+  //默认排除了CREATE状态，实际场景中，
+  //CREATE状态只是为了铺垫第一次执行
+  statusHook(opts: {
+    key?: TKey;
+    //create钩子
+    createHook?: Function;
+    //success钩子
+    successHook?: Function;
+    //fail钩子
+    failHook?: Function;
+    //pending钩子
+    pendingHook?: Function;
+    //默认排除create状态
+    excludes: STATUS[];
+    //执行load
+    runQueue?: boolean;
+  }) {
+    const {
+      key = this.key,
+      createHook,
+      successHook,
+      failHook,
+      pendingHook,
+      excludes = [STATUS.CREATE],
+      runQueue = true,
+    } = opts;
+    const keyOptions = {
+      key,
+    };
+    const status = this.getStatus(keyOptions);
+    //执行对应的状态队列
+    const runQueueHandler = () => {
+      //执行对应的状态队列
+      this.runQueue({
+        key,
+        status,
+      });
+    };
+    //如果当前的状态存在于的排除中，这里将不会进行处理
+    for (let i = 0; i < excludes.length; i++) {
+      const excStatus = excludes[i];
+      if (excStatus === status) return false;
+    }
+    //apply处理参数
+    const data = [this.getData(keyOptions)];
+    switch (status) {
+      case STATUS.CREATE:
+        this.hook(null, createHook, data);
+        return true;
+      case STATUS.SUCCESS:
+        this.hook(null, successHook, data);
+        //执行对应的状态队列
+        runQueue && runQueueHandler();
+        return true;
+      case STATUS.FAIL:
+        this.hook(null, failHook, data);
+        //执行对应的状态队列
+        runQueue && runQueueHandler();
+        return true;
+      case STATUS.PENDING:
+        this.hook(null, pendingHook, data);
+        return true;
+      default:
+        return false;
+    }
   }
 
   /*设置异步数据 CREATE[PENDING] -> SUCCESS[FAIL]
@@ -78,9 +162,9 @@ export default class BluePend {
    如果在紧接着的处理中，下一个写入到唯一key的状态为PENDING，
    如果在写入的过程中，发现当前状态以及被修改为SUCCESS，这里将不会触发
    [堆积过程[CREATE|PENDING]] -> [回调流程[SUCCESS|FAIL]]*/
-  setAsync(opts: TAsyncOptions) {
+  listen(opts: TPendListenOptions): this {
     const {
-      key,
+      key = this.key,
       //有效期 毫秒
       expire = 0,
       //队列处理
@@ -92,19 +176,23 @@ export default class BluePend {
       //针对 blue-queue-pipe 的队列配置
       queueOptions = {},
     } = opts;
-
+    //key配置
+    const keyOpts = {
+      key,
+    };
     //获取当前的同步项
-    const currentAsync = this.getAsync(key);
+    const currentPend = this.getListen(keyOpts);
     //队列回调
-    const queueCallBlack = (data: any, status: ASYNC_STATUS): void => {
-      if (status === ASYNC_STATUS.SUCCESS) {
+    let queueCallBlack = (data: any, status: STATUS): void => {
+      if (status === STATUS.SUCCESS) {
         this.hook(null, success, [data]);
       } else {
         this.hook(null, fail, [data]);
       }
     };
-
-    if (!currentAsync) {
+    //存在当前的pend配置
+    if (!currentPend) {
+      //当前队列数据
       const currentQueue = new BlueQueuePipe(queueOptions);
       //预计的超时队列处理
       if (expire && queue.length > 0) {
@@ -113,15 +201,14 @@ export default class BluePend {
           currentQueue.enqueue(_queue);
         });
       }
-
       //写入队列回调
       currentQueue.enqueue(queueCallBlack);
       //存储队列组
-      this.asyncGroup[key] = {
+      this.pends[key] = {
         //当前队列
         queue: currentQueue,
         //当前同步状态 未存在记录时，第一次未CREATE状态
-        status: ASYNC_STATUS.CREATE,
+        status: STATUS.CREATE,
         //数据
         data: null,
         //有效期 毫秒
@@ -131,117 +218,100 @@ export default class BluePend {
       };
     } else {
       //存在失效时间
-      if (currentAsync.expire && currentAsync.expireTime < +new Date()) {
+      if (currentPend.expire && currentPend.expireTime < +new Date()) {
         //获取到当前的队列
-        const currentQueue = this.getAsyncQueue(key).queue;
+        const currentQueue = this.getQueue(keyOpts).queue;
         //还有未处理的队列内容 存在于多频，超时处理较短情况来处理
         if (currentQueue.length > 0) {
           opts.queue = currentQueue;
         }
+        //当前设置的回调进行失效处理
+        queueCallBlack = null;
         //删除异步规则
-        this.removeAsync(key);
+        this.removeListen(keyOpts);
         //设置新的规则
-        return this.setAsync(opts);
+        return this.listen(opts);
       }
       //写入队列
-      this.getAsyncQueue(key).enqueue(queueCallBlack);
-      //如果已经是成功状态
-      if (this.isSuccessStatus(key)) return;
+      this.getQueue(keyOpts).enqueue(queueCallBlack);
+      //当前状态
+      const currentStatus = this.getStatus(keyOpts);
+      //如果已经是成功或者失败状态，这里就不进行pending类型写入
+      if (currentStatus === STATUS.SUCCESS || currentStatus === STATUS.FAIL) {
+        //返回注销当前监听
+        return this;
+      }
       //写成pending状态
-      this.setPendingStatus(key);
+      this.setStatus({
+        key,
+        status: STATUS.PENDING,
+      });
     }
+    return this;
   }
   //设置
-  getAsync(key: string): TASyncGroupItem {
-    return this.asyncGroup[key];
+  getListen(opts: TKeyOptions = {}): TPendsItem {
+    const { key = this.key } = opts;
+    return this.pends[key];
   }
-  //删除同步挂载
-  removeAsync(key: string): void {
-    delete this.asyncGroup[key];
+  //删除全部的监听
+  removeListen(opts: TKeyOptions = {}): void {
+    const { key = this.key } = opts;
+    delete this.pends[key];
   }
   //设置异步数据
-  setAsyncData(key: string, data: any): any {
-    return (this.getAsync(key).data = data);
+  setData(opts: { key?: TKey; data?: any }): any {
+    const { key = this.key, data = null } = opts;
+    return (this.getListen({ key }).data = data);
   }
   //获取数据
-  getAsyncData(key: string): any {
-    return this.getAsync(key).data;
+  getData(opts: TKeyOptions = {}): any {
+    return this.getListen(opts).data;
   }
   //删除同步数据
-  removeAsyncData(key: string) {
-    this.getAsync(key).data = null;
+  removeData(opts: TKeyOptions = {}) {
+    this.getListen(opts).data = null;
   }
   //获取异步队列
-  getAsyncQueue(key: string): BlueQueuePipe {
-    return this.getAsync(key).queue;
+  getQueue(opts: TKeyOptions = {}): BlueQueuePipe {
+    return this.getListen(opts).queue;
   }
   //设置异步状态
-  setAsyncStatus(key: string, status: ASYNC_STATUS): ASYNC_STATUS {
-    return (this.getAsync(key).status = status);
+  setStatus(opts: { key?: TKey; status: STATUS }) {
+    const { key = this.key, status } = opts;
+    this.getListen({ key }).status = status;
   }
   //设置异步状态
-  getAsyncStatus(key: string): ASYNC_STATUS {
-    return this.getAsync(key).status;
-  }
-  //设置成功状态
-  setPendingStatus(key: string) {
-    this.setAsyncStatus(key, ASYNC_STATUS.PENDING);
-  }
-  //设置成功状态
-  setSuccessStatus(key: string) {
-    this.setAsyncStatus(key, ASYNC_STATUS.SUCCESS);
-  }
-  //设置成功状态
-  setFailStatus(key: string) {
-    this.setAsyncStatus(key, ASYNC_STATUS.FAIL);
+  getStatus(opts: TKeyOptions = {}): STATUS {
+    return this.getListen(opts).status;
   }
   //执行同步队列
-  runAsyncQueue(key: string, status = ASYNC_STATUS.SUCCESS) {
-    this.getAsyncQueue(key).run(this.getAsyncData(key), status);
+  runQueue(opts: TStatusOptions = {}) {
+    const { key = this.key, status = STATUS.SUCCESS } = opts;
+    this.getQueue({ key }).run(this.getData({ key }), status);
   }
-  //是否为创建状态
-  isCreateStatus(key: string) {
-    return conditionAsyncStatus.call(this, key, ASYNC_STATUS.CREATE);
-  }
-  //是否为为等待状态
-  isPendingStatus(key: string) {
-    return conditionAsyncStatus.call(this, key, ASYNC_STATUS.PENDING);
-  }
-  //是否为成功状态
-  isSuccessStatus(key: string) {
-    return conditionAsyncStatus.call(this, key, ASYNC_STATUS.SUCCESS);
-  }
-  //是否为错误状态
-  isFailStatus(key: string) {
-    return conditionAsyncStatus.call(this, key, ASYNC_STATUS.FAIL);
-  }
-  //同步创建处理钩子
-  asyncCreateHook(key: string, callback: Function) {
-    return asyncStatusHook.call(this, ASYNC_STATUS.CREATE, key, callback);
-  }
-  //同步等待处理钩子
-  asyncPendingHook(key: string, callback: Function) {
-    return asyncStatusHook.call(this, ASYNC_STATUS.PENDING, key, callback);
-  }
-  //同步成功处理钩子
-  asyncSuccessHook(key: string, callback: Function) {
-    return asyncStatusHook.call(this, ASYNC_STATUS.SUCCESS, key, callback);
-  }
-  //同步异常处理钩子
-  asyncFailHook(key: string, callback: Function) {
-    return asyncStatusHook.call(this, ASYNC_STATUS.FAIL, key, callback);
-  }
-  //异步完毕处理
-  asyncLoad(opts: { key: string; data?: any; status?: ASYNC_STATUS }) {
-    const { key = ``, data, status = ASYNC_STATUS.SUCCESS } = opts;
+  //完毕处理
+  load(opts: TLoadOptions = {}): void {
+    const { key = this.key, data = null, status = STATUS.SUCCESS } = opts;
+    //load只受理SUCCESS和FAIL状态
+    if (!(status === STATUS.SUCCESS || status === STATUS.FAIL)) return;
     //修改成功状态
-    this.setAsyncStatus(key, status);
+    this.setStatus({
+      key,
+      status,
+    });
     //设置当前key相关的数据值
     if (data !== undefined) {
       //设置数据
-      this.setAsyncData(key, data);
+      this.setData({
+        key,
+        data,
+      });
     }
     //执行同步队列
-    this.runAsyncQueue(key, status);
+    this.runQueue({
+      key,
+      status,
+    });
   }
 }
