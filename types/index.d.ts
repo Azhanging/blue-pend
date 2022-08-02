@@ -29,8 +29,8 @@ interface TLoadOptions {
 interface TStatusOptions extends TKeyOptions {
     status?: STATUS;
 }
-interface TConstructorOptions {
-    key?: TKey;
+interface TConstructorOptions extends TKeyOptions {
+    queueOptions?: any;
 }
 export default class BluePend {
     static STATUS: typeof STATUS;
@@ -39,21 +39,21 @@ export default class BluePend {
     key?: TKey;
     constructor(opts?: TConstructorOptions);
     hook(ctx: any, fn?: Function, args?: any[]): any;
-    statusHook(opts: {
+    statusHook(opts?: {
         key?: TKey;
-        createHook?: Function;
-        successHook?: Function;
-        failHook?: Function;
-        pendingHook?: Function;
-        excludes: STATUS[];
+        create?: Function;
+        success?: Function;
+        fail?: Function;
+        pending?: Function;
+        excludes?: STATUS[];
         runQueue?: boolean;
     }): boolean;
-    listen(opts: TPendListenOptions): this;
+    listen(opts?: TPendListenOptions): this;
     getListen(opts?: TKeyOptions): TPendsItem;
     removeListen(opts?: TKeyOptions): void;
     setData(opts: {
         key?: TKey;
-        data?: any;
+        data: any;
     }): any;
     getData(opts?: TKeyOptions): any;
     removeData(opts?: TKeyOptions): void;

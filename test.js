@@ -21,10 +21,10 @@ function request(opts = {}) {
         //匹配到会进行对于的hook处理
         .statusHook({
           key,
-          successHook: (data) => {
+          success: (data) => {
             return resolve(data);
           },
-          failHook: (error) => {
+          fail: (error) => {
             return reject(error);
           },
         })

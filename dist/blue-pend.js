@@ -1,10 +1,10 @@
 /*!
  * 
- * blue-pend.js 1.0.3
+ * blue-pend.js 1.0.4
  * (c) 2016-2022 Blue
  * Released under the MIT License.
  * https://github.com/azhanging/blue-pend
- * time:Mon, 01 Aug 2022 16:42:53 GMT
+ * time:Tue, 02 Aug 2022 15:48:50 GMT
  * 
  */
 (function webpackUniversalModuleDefinition(root, factory) {
@@ -143,7 +143,8 @@ var BluePend = /** @class */ (function () {
     //CREATE状态只是为了铺垫第一次执行
     BluePend.prototype.statusHook = function (opts) {
         var _this = this;
-        var _a = opts.key, key = _a === void 0 ? this.key : _a, createHook = opts.createHook, successHook = opts.successHook, failHook = opts.failHook, pendingHook = opts.pendingHook, _b = opts.excludes, excludes = _b === void 0 ? [_status__WEBPACK_IMPORTED_MODULE_1__["STATUS"].CREATE] : _b, _c = opts.runQueue, runQueue = _c === void 0 ? true : _c;
+        if (opts === void 0) { opts = {}; }
+        var _a = opts.key, key = _a === void 0 ? this.key : _a, create = opts.create, success = opts.success, fail = opts.fail, pending = opts.pending, _b = opts.excludes, excludes = _b === void 0 ? [_status__WEBPACK_IMPORTED_MODULE_1__["STATUS"].CREATE] : _b, _c = opts.runQueue, runQueue = _c === void 0 ? true : _c;
         var keyOptions = {
             key: key,
         };
@@ -166,20 +167,20 @@ var BluePend = /** @class */ (function () {
         var data = [this.getData(keyOptions)];
         switch (status) {
             case _status__WEBPACK_IMPORTED_MODULE_1__["STATUS"].CREATE:
-                this.hook(null, createHook, data);
+                this.hook(null, create, data);
                 return true;
             case _status__WEBPACK_IMPORTED_MODULE_1__["STATUS"].SUCCESS:
-                this.hook(null, successHook, data);
+                this.hook(null, success, data);
                 //执行对应的状态队列
                 runQueue && runQueueHandler();
                 return true;
             case _status__WEBPACK_IMPORTED_MODULE_1__["STATUS"].FAIL:
-                this.hook(null, failHook, data);
+                this.hook(null, fail, data);
                 //执行对应的状态队列
                 runQueue && runQueueHandler();
                 return true;
             case _status__WEBPACK_IMPORTED_MODULE_1__["STATUS"].PENDING:
-                this.hook(null, pendingHook, data);
+                this.hook(null, pending, data);
                 return true;
             default:
                 return false;
@@ -192,6 +193,7 @@ var BluePend = /** @class */ (function () {
      [堆积过程[CREATE|PENDING]] -> [回调流程[SUCCESS|FAIL]]*/
     BluePend.prototype.listen = function (opts) {
         var _this = this;
+        if (opts === void 0) { opts = {}; }
         var _a = opts.key, key = _a === void 0 ? this.key : _a, 
         //有效期 毫秒
         _b = opts.expire, 
@@ -206,9 +208,7 @@ var BluePend = /** @class */ (function () {
         //队列
         queue = _c === void 0 ? [] : _c, 
         //针对 blue-queue-pipe 的队列配置
-        _d = opts.queueOptions, 
-        //针对 blue-queue-pipe 的队列配置
-        queueOptions = _d === void 0 ? {} : _d;
+        queueOptions = opts.queueOptions;
         //key配置
         var keyOpts = {
             key: key,
@@ -227,7 +227,7 @@ var BluePend = /** @class */ (function () {
         //存在当前的pend配置
         if (!currentPend) {
             //当前队列数据
-            var currentQueue_1 = new blue_queue_pipe__WEBPACK_IMPORTED_MODULE_0___default.a(queueOptions);
+            var currentQueue_1 = new blue_queue_pipe__WEBPACK_IMPORTED_MODULE_0___default.a(queueOptions || this.options.queueOptions);
             //预计的超时队列处理
             if (expire && queue.length > 0) {
                 queue.forEach(function (_queue) {

@@ -54,8 +54,9 @@ interface TStatusOptions extends TKeyOptions {
   status?: STATUS;
 }
 
-interface TConstructorOptions {
-  key?: TKey;
+interface TConstructorOptions extends TKeyOptions {
+  //针对 blue-queue-pipe 的队列配置
+  queueOptions?: any;
 }
 
 //生成状态判断
@@ -92,27 +93,29 @@ export default class BluePend {
   //如果遇到了非CREATE状态，返回true
   //默认排除了CREATE状态，实际场景中，
   //CREATE状态只是为了铺垫第一次执行
-  statusHook(opts: {
-    key?: TKey;
-    //create钩子
-    createHook?: Function;
-    //success钩子
-    successHook?: Function;
-    //fail钩子
-    failHook?: Function;
-    //pending钩子
-    pendingHook?: Function;
-    //默认排除create状态
-    excludes: STATUS[];
-    //执行load
-    runQueue?: boolean;
-  }) {
+  statusHook(
+    opts: {
+      key?: TKey;
+      //create钩子
+      create?: Function;
+      //success钩子
+      success?: Function;
+      //fail钩子
+      fail?: Function;
+      //pending钩子
+      pending?: Function;
+      //默认排除create状态
+      excludes?: STATUS[];
+      //执行load
+      runQueue?: boolean;
+    } = {}
+  ) {
     const {
       key = this.key,
-      createHook,
-      successHook,
-      failHook,
-      pendingHook,
+      create,
+      success,
+      fail,
+      pending,
       excludes = [STATUS.CREATE],
       runQueue = true,
     } = opts;
@@ -137,20 +140,20 @@ export default class BluePend {
     const data = [this.getData(keyOptions)];
     switch (status) {
       case STATUS.CREATE:
-        this.hook(null, createHook, data);
+        this.hook(null, create, data);
         return true;
       case STATUS.SUCCESS:
-        this.hook(null, successHook, data);
+        this.hook(null, success, data);
         //执行对应的状态队列
         runQueue && runQueueHandler();
         return true;
       case STATUS.FAIL:
-        this.hook(null, failHook, data);
+        this.hook(null, fail, data);
         //执行对应的状态队列
         runQueue && runQueueHandler();
         return true;
       case STATUS.PENDING:
-        this.hook(null, pendingHook, data);
+        this.hook(null, pending, data);
         return true;
       default:
         return false;
@@ -162,7 +165,7 @@ export default class BluePend {
    如果在紧接着的处理中，下一个写入到唯一key的状态为PENDING，
    如果在写入的过程中，发现当前状态以及被修改为SUCCESS，这里将不会触发
    [堆积过程[CREATE|PENDING]] -> [回调流程[SUCCESS|FAIL]]*/
-  listen(opts: TPendListenOptions): this {
+  listen(opts: TPendListenOptions = {}): this {
     const {
       key = this.key,
       //有效期 毫秒
@@ -174,7 +177,7 @@ export default class BluePend {
       //队列
       queue = [],
       //针对 blue-queue-pipe 的队列配置
-      queueOptions = {},
+      queueOptions,
     } = opts;
     //key配置
     const keyOpts = {
@@ -193,7 +196,9 @@ export default class BluePend {
     //存在当前的pend配置
     if (!currentPend) {
       //当前队列数据
-      const currentQueue = new BlueQueuePipe(queueOptions);
+      const currentQueue = new BlueQueuePipe(
+        queueOptions || this.options.queueOptions
+      );
       //预计的超时队列处理
       if (expire && queue.length > 0) {
         queue.forEach((_queue) => {
@@ -260,7 +265,7 @@ export default class BluePend {
     delete this.pends[key];
   }
   //设置异步数据
-  setData(opts: { key?: TKey; data?: any }): any {
+  setData(opts: { key?: TKey; data: any }): any {
     const { key = this.key, data = null } = opts;
     return (this.getListen({ key }).data = data);
   }
