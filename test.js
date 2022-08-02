@@ -117,6 +117,11 @@ pendLockKey
     success: (data) => {
       console.log(`这是锁定的pend-2`, data);
     },
+  })
+  .statusHook({
+    success: () => {
+      console.log(`success`);
+    },
   });
 
 console.log(`当前的状态`, pendLockKey.getStatus());

@@ -137,23 +137,23 @@ export default class BluePend {
       if (excStatus === status) return false;
     }
     //apply处理参数
-    const data = [this.getData(keyOptions)];
+    const args = [this.getData(keyOptions)];
     switch (status) {
       case STATUS.CREATE:
-        this.hook(null, create, data);
+        this.hook(null, create, args);
         return true;
       case STATUS.SUCCESS:
-        this.hook(null, success, data);
+        this.hook(null, success, args);
         //执行对应的状态队列
         runQueue && runQueueHandler();
         return true;
       case STATUS.FAIL:
-        this.hook(null, fail, data);
+        this.hook(null, fail, args);
         //执行对应的状态队列
         runQueue && runQueueHandler();
         return true;
       case STATUS.PENDING:
-        this.hook(null, pending, data);
+        this.hook(null, pending, args);
         return true;
       default:
         return false;
