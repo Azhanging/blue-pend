@@ -251,7 +251,7 @@ getQueue({
 }): BlueQueuePipe;
 ```
 
-### setStatus() 获取当前 key 的 BlueQueuePipe 队列实例
+### setStatus() 设置当前 key 的状态 
 
 ```typescript
 setStatus({
@@ -260,7 +260,7 @@ setStatus({
 }): STATUS;
 ```
 
-### getStatus() 获取当前 key 的 BlueQueuePipe 队列实例
+### getStatus() 获取当前 key 的 状态
 
 ```typescript
 getStatus({
