@@ -1,10 +1,10 @@
 /*!
  * 
- * blue-pend.js 1.0.5
- * (c) 2016-2022 Blue
+ * blue-pend.js 1.0.6
+ * (c) 2016-2024 Blue
  * Released under the MIT License.
  * https://github.com/azhanging/blue-pend
- * time:Tue, 02 Aug 2022 16:19:56 GMT
+ * time:Sat, 23 Nov 2024 09:09:12 GMT
  * 
  */
 (function webpackUniversalModuleDefinition(root, factory) {
@@ -170,14 +170,14 @@ var BluePend = /** @class */ (function () {
                 this.hook(null, create, args);
                 return true;
             case _status__WEBPACK_IMPORTED_MODULE_1__["STATUS"].SUCCESS:
-                this.hook(null, success, args);
                 //执行对应的状态队列
                 runQueue && runQueueHandler();
+                this.hook(null, success, args);
                 return true;
             case _status__WEBPACK_IMPORTED_MODULE_1__["STATUS"].FAIL:
-                this.hook(null, fail, args);
                 //执行对应的状态队列
                 runQueue && runQueueHandler();
+                this.hook(null, fail, args);
                 return true;
             case _status__WEBPACK_IMPORTED_MODULE_1__["STATUS"].PENDING:
                 this.hook(null, pending, args);

@@ -143,14 +143,14 @@ export default class BluePend {
         this.hook(null, create, args);
         return true;
       case STATUS.SUCCESS:
-        this.hook(null, success, args);
         //执行对应的状态队列
         runQueue && runQueueHandler();
+        this.hook(null, success, args);
         return true;
       case STATUS.FAIL:
-        this.hook(null, fail, args);
         //执行对应的状态队列
         runQueue && runQueueHandler();
+        this.hook(null, fail, args);
         return true;
       case STATUS.PENDING:
         this.hook(null, pending, args);
